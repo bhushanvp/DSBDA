@@ -13,57 +13,70 @@ import org.apache.hadoop.util.GenericOptionsParser;
 
 public class MusicProcessingApp2 {
     public static void main(String[] args) throws Exception {
-        Configuration configuration = new Configuration();
-        String[] files = new GenericOptionsParser(configuration, args).getRemainingArgs();
+        Configuration conf = new Configuration();
+        String[] files = new GenericOptionsParser(conf, args).getRemainingArgs();
         Path inputPath = new Path(files[0]);
         Path outputPath = new Path(files[1]);
 
-        Job job = new Job(configuration, "Music Processing");
+        Job job = Job.getInstance(conf, "TrackStatistics");
         job.setJarByClass(MusicProcessingApp2.class);
-        job.setMapperClass(MusicMapper.class);
-        job.setReducerClass(MusicReducer.class);
+        job.setMapperClass(TrackMapper.class);
+        job.setReducerClass(TrackReducer.class);
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(IntWritable.class);
+
         FileInputFormat.addInputPath(job, inputPath);
         FileOutputFormat.setOutputPath(job, outputPath);
+
         System.exit(job.waitForCompletion(true) ? 0 : 1);
     }
 
-    public static class MusicMapper extends Mapper<LongWritable, Text, Text, IntWritable> {
-        private final static IntWritable one = new IntWritable(1);
+    public static class TrackMapper extends Mapper<LongWritable, Text, Text, IntWritable> {
         private Text trackId = new Text();
-        
+        private IntWritable radioCount = new IntWritable();
+        private IntWritable skipCount = new IntWritable();
+
         public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
-            // Split the input CSV line by comma
+            if (key.get() == 0) {
+                // Skip the CSV header row
+                return;
+            }
+
             String[] fields = value.toString().split(",");
-            
-            // Extract the relevant fields
-            String userId = fields[0];
-            String trackIdValue = fields[1];
-            int shared = Integer.parseInt(fields[2]);
-            
-            // Emit the userId as the key and 1 as the value
-            context.write(new Text(userId), one);
-            
-            // Emit the trackId and shared count as the key and 1 as the value
-            if (shared == 1) {
-                trackId.set(new Text(trackIdValue));
-                context.write(trackId, one);
+            if (fields.length >= 5) {
+                String trackIdStr = fields[1].trim();
+                int radio = Integer.parseInt(fields[3].trim());
+                int skip = Integer.parseInt(fields[4].trim());
+
+                trackId.set(trackIdStr);
+                radioCount.set(radio);
+                skipCount.set(skip);
+               
+                context.write(trackId, radioCount);
+                context.write(trackId, skipCount);
             }
         }
     }
 
-    public static class MusicReducer extends Reducer<Text, IntWritable, Text, IntWritable> {
-        private IntWritable result = new IntWritable();
+    public static class TrackReducer extends Reducer<Text, IntWritable, Text, IntWritable> {
 
-        public void reduce(Text key, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
-            int sum = 0;
+        public void reduce(Text key, Iterable<IntWritable> values, Context context)
+                throws IOException, InterruptedException {
+            int radioCount = 0;
+            int skipCount = 0;
+
             for (IntWritable value : values) {
-                sum += value.get();
+                if (value.get() == 1) {
+                    radioCount++;
+                } else if (value.get() == 0) {
+                    skipCount++;
+                }
             }
-            result.set(sum);
-            context.write(key, result);
+
+            context.write(key, new IntWritable(radioCount));
+            context.write(new Text("Total Radio Count"), new IntWritable(radioCount));
+            context.write(new Text("Skip Count"), new IntWritable(skipCount));
         }
     }
+
 }
- 
