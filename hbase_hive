@@ -1,0 +1,33 @@
+
+Create Table
+1) create 'flight', 'finfo', 'fsh'
+2) list
+
+Insert Record
+3) put 'flight', 1, 'finfo:source', 'Pune'
+4) put 'flight', 1, 'finfo:dest', 'Mumbai'
+5) put 'flight', 1, 'fsh:at', '10:25 AM'
+6) put 'flight', 1, 'fsh:dept', '11:25 AM'
+7) put 'flight', 1, 'fsh:delay', '5 Min'
+
+....Insert More flights
+
+
+Display Record From 'flight'
+8) scan 'flight'
+
+Alter Database
+9) alter 'flight', NAME=>'revenue'
+10) put 'flight',1 , 'revenue:rs', '45000'
+11) scan 'flight'
+
+Delete Entry
+12) alter 'flight', NAME=>'revenue', METHOD=>'delete'
+
+Drop Table
+13) create 'tb1', 'cf'
+14) list
+15) drop 'tb1'
+
+Display Delay in HBase
+16) select sum(delay) from hbase_flight_new;
